@@ -1,0 +1,47 @@
+[
+ {
+  "task": "esci_us",
+  "source": "tasksource/esci (ESCI reduced test)",
+  "license": "Apache-2.0",
+  "n_queries": 1000,
+  "n_pairs": 20477,
+  "labels": {
+   "exact": 9146,
+   "substitute": 7034,
+   "complement": 839,
+   "irrelevant": 3458
+  },
+  "sha256_test": "17f29391616c769c07c2ffe707a6d3f9d5bf1fc4454b7f2496f15be9c89c9c05",
+  "limited": false
+ },
+ {
+  "task": "esci_es",
+  "source": "tasksource/esci (ESCI reduced test)",
+  "license": "Apache-2.0",
+  "n_queries": 200,
+  "n_pairs": 5314,
+  "labels": {
+   "exact": 2132,
+   "substitute": 1745,
+   "complement": 425,
+   "irrelevant": 1012
+  },
+  "sha256_test": "ddc43d4fa35076335cacfd3050b3383da59fc424ec2e50f84205811778620d5f",
+  "limited": false
+ },
+ {
+  "task": "esci_jp",
+  "source": "tasksource/esci (ESCI reduced test)",
+  "license": "Apache-2.0",
+  "n_queries": 200,
+  "n_pairs": 5504,
+  "labels": {
+   "exact": 2340,
+   "substitute": 1888,
+   "complement": 275,
+   "irrelevant": 1001
+  },
+  "sha256_test": "a354c071481e45138420ec6e6f55b37258d2e33a6ca4c73cffa7f6204aa4cb1d",
+  "limited": false
+ }
+]

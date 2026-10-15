@@ -1,0 +1,13 @@
+check,model,task,n,value
+corr P(exact|choice) vs P(yes|noul) (must be > 0),clef,esci_us,20477,0.9495701442837656
+corr P(exact|choice) vs P(yes|noul) (must be > 0),clef_flash,esci_us,20477,0.965096891469615
+corr P(exact|choice) vs P(yes|noul) (must be > 0),gemma_readout,esci_us,20477,0.9538318117223064
+corr P(exact|choice) vs P(yes|noul) (must be > 0),jev,esci_us,20477,0.9645319092091286
+corr P(exact|choice) vs P(yes|noul) (must be > 0),pplx,esci_us,20477,0.9716442505583388
+corr P(exact|choice) vs P(yes|noul) (must be > 0),pplx_api,esci_us,20477,0.971803038043147
+corr P(exact|choice) vs P(yes|noul) (must be > 0),qwen_readout,esci_us,20477,0.950525249630757
+hosted vs local Perplexity: decision agreement (choice),pplx,esci_us,20477,0.9671826927772623
+hosted vs local Perplexity: decision agreement (score),pplx,esci_us,20477,0.9696732919861308
+hosted vs local Perplexity: decision agreement (noul),pplx,esci_us,20477,0.9845680519607365
+hosted vs local Perplexity: decision agreement (choice),pplx,esci_es,5314,0.9674444862627023
+hosted vs local Perplexity: decision agreement (choice),pplx,esci_jp,5504,0.9678415697674418
