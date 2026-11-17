@@ -1,0 +1,54 @@
+{
+ "esci_us_trainprobe": {
+  "task": "esci_us_trainprobe",
+  "n_queries": 300,
+  "n_pairs": 6576,
+  "labels": {
+   "exact": 2691,
+   "substitute": 2320,
+   "complement": 343,
+   "irrelevant": 1222
+  },
+  "sha256_test": "944d87059236d236f7101c536c8d56960da25cb0c396c986b5033663c2c5b885",
+  "source": "tasksource/esci (ESCI reduced TRAIN split, US)",
+  "license": "Apache-2.0",
+  "n_train_full_pairs": 419653
+ },
+ "wands": {
+  "task": "wands",
+  "n_queries": 480,
+  "n_pairs": 14147,
+  "labels": {
+   "exact": 2332,
+   "substitute": 9065,
+   "complement": 0,
+   "irrelevant": 2750
+  },
+  "sha256_test": "547651bfd3d7b976b2ee23142d5ebe174f5b9b8b9d3b6635dced5bb21752206e",
+  "source": "wayfair/WANDS (github, main)",
+  "license": "MIT",
+  "per_query_cap": 30,
+  "sha256_raw": {
+   "product.csv": "d993926254572e6eba96c8fd87cc549a17fb91ad3748308036eee4cf92b10ac6",
+   "query.csv": "63b61660560fecc33ec490804c7e2b81402ee3e7c31a9cbb5e03736639f68e95",
+   "label.csv": "c11fe81ad62f17f56f316b0ec9630ebe8fbe1393578cb0ca4f05c17253a180ef"
+  }
+ },
+ "esci_us_retrieval": {
+  "task": "esci_us_retrieval",
+  "n_queries": 993,
+  "n_pairs": 38665,
+  "labels": {
+   "exact": 6559,
+   "substitute": 4442,
+   "complement": 597,
+   "irrelevant": 27067
+  },
+  "sha256_test": "9d2407ad76c657eb4a6a388f40ac3bf3af4022e5c4bf0a1c5627f45f25e98ca6",
+  "source": "ESCI test sample (US), BM25 language-aware analyser over the pooled products",
+  "pool_products": 20140,
+  "k": 40,
+  "mean_exact_recall_at_k": 0.7450033773946758
+ },
+ "limited": false
+}

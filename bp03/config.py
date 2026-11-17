@@ -51,9 +51,18 @@ HF_MODELS = {
     "qwen": "Qwen/Qwen3.8-27B-FP8",
     "gemma": "google/gemma-4-31B-it",
     "reranker": "Qwen/Qwen3-Reranker-4B",
+    "reranker8b": "Qwen/Qwen3-Reranker-8B",
     "modernbert": "answerdotai/ModernBERT-large",
     "mac_readout": "Qwen/Qwen3-0.6B",
     "mac_reranker": "Qwen/Qwen3-Reranker-0.6B",
+}
+
+HF_REVISIONS = {
+    "reranker": "22e683669bc0f0bd69640a1354a6d0aebcfeede5",
+    "reranker8b": "77d193c791ed757ca307ee72715aa132723da912",
+    "qwen": "017b9c7af6b5689d5dd426a76e0bc077eb5ca20a",
+    "gemma": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+    "modernbert": "45bb4654a4d5aaff24dd11d4781fa46d39bf8c13",
 }
 
 READOUT_TOP_LOGPROBS = 64
@@ -81,9 +90,9 @@ def records_path(task: str, condition: str) -> Path:
 
 def conditions_for(task: str, model: str) -> list[str]:
     us = task == "esci_us"
-    if model == "qwen_reranker":
+    if model.startswith("qwen_reranker"):
         return ["noul"]
-    if model == "modernbert":
+    if model.startswith("modernbert"):
         return ["choice"] if us else []
     if model in ("qwen_gen", "gemma_gen"):
         return ["choice"]

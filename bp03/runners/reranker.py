@@ -2,20 +2,31 @@ from __future__ import annotations
 
 import math
 
-from ..config import HF_MODELS, SEED, VLLM_GPU_MEM, VLLM_MAX_MODEL_LEN
+from ..config import HF_MODELS, HF_REVISIONS, SEED, VLLM_GPU_MEM, VLLM_MAX_MODEL_LEN
 from ..utils import Timer, append_jsonl, chunked, get_logger
 from .common import base_parser, jobs, pred_row
 
 log = get_logger("reranker")
 MODEL_KEY = "qwen_reranker"
 INSTRUCTION = "Given an e-commerce shopping query, judge whether the product satisfies the query"
+INSTRUCTIONS = {
+    "ecommerce": INSTRUCTION,
+    "default": "Given a web search query, retrieve relevant passages that answer the query",
+    "esci": ("Given an e-commerce shopping query, judge whether the product is an exact match: it is relevant to "
+             "the query and satisfies all of the query's specifications (e.g. product type, brand, size, color, "
+             "quantity)"),
+}
+
+
+def model_key(size: str, instruction: str) -> str:
+    return "qwen_reranker" if (size, instruction) == ("4b", "ecommerce") else f"qwen_reranker{size}_{instruction}"
 PREFIX = ("<|im_start|>system\nJudge whether the Document meets the requirements based on the Query and the "
           "Instruct provided. Note that the answer can only be \"yes\" or \"no\".<|im_end|>\n<|im_start|>user\n")
 SUFFIX = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
 
 
-def prompt(rec: dict) -> str:
-    return f"{PREFIX}<Instruct>: {INSTRUCTION}\n<Query>: {rec['query']}\n<Document>: {rec['text']}{SUFFIX}"
+def prompt(rec: dict, instruction: str = INSTRUCTION) -> str:
+    return f"{PREFIX}<Instruct>: {instruction}\n<Query>: {rec['query']}\n<Document>: {rec['text']}{SUFFIX}"
 
 
 def p_yes(lp_yes: float | None, lp_no: float | None) -> float:
@@ -28,12 +39,18 @@ def p_yes(lp_yes: float | None, lp_no: float | None) -> float:
 def main():
     ap = base_parser("Run Qwen3-Reranker on records")
     ap.add_argument("--backend", choices=["vllm", "hf"], default="vllm")
+    ap.add_argument("--size", choices=["4b", "8b"], default="4b")
+    ap.add_argument("--instruction", choices=list(INSTRUCTIONS), default="ecommerce")
     args = ap.parse_args()
+    key = model_key(args.size, args.instruction)
+    instruction = INSTRUCTIONS[args.instruction]
+    hf_key = "reranker" if args.size == "4b" else "reranker8b"
     if args.backend == "vllm":
         from vllm import LLM, SamplingParams
         from vllm.inputs import TokensPrompt
-        llm = LLM(model=HF_MODELS["reranker"], max_model_len=VLLM_MAX_MODEL_LEN, gpu_memory_utilization=VLLM_GPU_MEM,
-                  enable_prefix_caching=True, max_logprobs=20, seed=SEED, logprobs_mode="processed_logprobs")
+        llm = LLM(model=HF_MODELS[hf_key], revision=HF_REVISIONS[hf_key], max_model_len=VLLM_MAX_MODEL_LEN,
+                  gpu_memory_utilization=VLLM_GPU_MEM, enable_prefix_caching=True, max_logprobs=20, seed=SEED,
+                  logprobs_mode="processed_logprobs")
         tok = llm.get_tokenizer()
     else:
         import torch
@@ -45,9 +62,10 @@ def main():
     no_id = tok.convert_tokens_to_ids("no")
     if args.backend == "vllm":
         sp = SamplingParams(max_tokens=1, temperature=0.0, logprobs=2, allowed_token_ids=[yes_id, no_id])
-    for task, cond, recs, out in jobs(args, MODEL_KEY):
+    log.info("reranker %s (%s), instruction=%s -> model key %s", HF_MODELS[hf_key], args.size, args.instruction, key)
+    for task, cond, recs, out in jobs(args, key):
         for chunk in chunked(recs, 512 if args.backend == "vllm" else 8):
-            ids = [tok.encode(prompt(r), add_special_tokens=False) for r in chunk]
+            ids = [tok.encode(prompt(r, instruction), add_special_tokens=False) for r in chunk]
             with Timer() as t:
                 if args.backend == "vllm":
                     outs = llm.generate([TokensPrompt(prompt_token_ids=x) for x in ids], sp, use_tqdm=False)
@@ -64,7 +82,7 @@ def main():
                 if yes_id not in lp or no_id not in lp:
                     raise RuntimeError(f"{r['id']}: yes/no logprobs missing: {lp}")
                 p = p_yes(lp[yes_id], lp[no_id])
-                rows.append(pred_row(r, MODEL_KEY, {"yes": p, "no": 1.0 - p}, per, len(x)))
+                rows.append(pred_row(r, key, {"yes": p, "no": 1.0 - p}, per, len(x)))
             append_jsonl(out, rows)
         log.info("done %s", out)
 

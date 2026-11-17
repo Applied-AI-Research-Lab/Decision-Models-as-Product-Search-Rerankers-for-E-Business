@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 
-from ..config import (HF_MODELS, READOUT_PRUNE, READOUT_TOP_LOGPROBS, SEED, THINK, VLLM_GPU_MEM,
+from ..config import (HF_MODELS, HF_REVISIONS, READOUT_PRUNE, READOUT_TOP_LOGPROBS, SEED, THINK, VLLM_GPU_MEM,
                       VLLM_MAX_MODEL_LEN)
 from ..prompts import (READOUT_PREFILL, generative_schema, generative_user_prompt,
                        readout_user_prompt, verbalized_probs)
@@ -14,12 +14,16 @@ from .common import base_parser, jobs, pred_row
 log = get_logger("vllm")
 
 
-def build_llm(llm_key: str):
+def build_llm(llm_key: str, processed_logprobs: bool = False):
     from vllm import LLM
 
-    kwargs = dict(model=HF_MODELS[llm_key], max_model_len=VLLM_MAX_MODEL_LEN,
+    kwargs = dict(model=HF_MODELS[llm_key], revision=HF_REVISIONS.get(llm_key), max_model_len=VLLM_MAX_MODEL_LEN,
                   gpu_memory_utilization=VLLM_GPU_MEM, enable_prefix_caching=True,
                   max_logprobs=READOUT_TOP_LOGPROBS, seed=SEED)
+    if processed_logprobs:
+        kwargs["logprobs_mode"] = "processed_logprobs"
+    if llm_key == "qwen":
+        kwargs["max_num_seqs"] = 512
     try:
         return LLM(**kwargs, limit_mm_per_prompt={"image": 0, "video": 0})
     except TypeError:
@@ -49,6 +53,44 @@ def run_readout(llm, model_key: str, recs: list[dict], out, chunk_size: int = 12
         rows = []
         for r, p, d, ids in zip(chunk, probs, diags, prefixes):
             rows.append(pred_row(r, model_key, dict(zip(r["options"], p)), per, len(ids), meta=d))
+        append_jsonl(out, rows)
+
+
+def digit_probs(logprobs: dict[int, float], digit_ids: list[int]) -> list[float]:
+    import math
+    missing = [d for d in digit_ids if d not in logprobs or logprobs[d] is None or math.isinf(logprobs[d])]
+    if missing:
+        raise RuntimeError(f"digit tokens missing from logprobs: {missing}")
+    m = max(logprobs[d] for d in digit_ids)
+    w = [math.exp(logprobs[d] - m) for d in digit_ids]
+    z = sum(w)
+    return [x / z for x in w]
+
+
+def run_readout1(llm, model_key: str, recs: list[dict], out, chunk_size: int = 256):
+    from vllm import SamplingParams
+    from vllm.inputs import TokensPrompt
+
+    tok = llm.get_tokenizer()
+    cids = char_token_ids(tok)
+    for chunk in chunked(recs, chunk_size):
+        prefixes, params, dids = [], [], []
+        for r in chunk:
+            k = len(r["options"])
+            if k > 9:
+                raise ValueError("single-pass readout needs single-digit option labels")
+            ids = [cids[str(i)] for i in range(1, k + 1)]
+            prefixes.append(chat_ids(tok, readout_user_prompt(r), READOUT_PREFILL))
+            params.append(SamplingParams(max_tokens=1, temperature=0.0, logprobs=k, allowed_token_ids=ids))
+            dids.append(ids)
+        with Timer() as t:
+            outs = llm.generate([TokensPrompt(prompt_token_ids=x) for x in prefixes], params, use_tqdm=False)
+        per = t.seconds / len(chunk)
+        rows = []
+        for r, o, ids, x in zip(chunk, outs, dids, prefixes):
+            lp = {tid: v.logprob for tid, v in o.outputs[0].logprobs[0].items()}
+            p = digit_probs(lp, ids)
+            rows.append(pred_row(r, model_key, dict(zip(r["options"], p)), per, len(x), meta={"passes": 1}))
         append_jsonl(out, rows)
 
 
@@ -132,7 +174,7 @@ def run_think(llm, model_key: str, recs: list[dict], out, chunk_size: int = 256)
         append_jsonl(out, rows)
 
 
-MODE_KEY = {"readout": "readout", "generative": "gen", "think": "think"}
+MODE_KEY = {"readout": "readout", "readout1": "readout1", "generative": "gen", "think": "think"}
 
 
 def main():
@@ -143,8 +185,9 @@ def main():
     if args.mode == "think" and args.llm != "qwen":
         raise SystemExit("think mode is planned for Qwen3.8 only")
     model_key = f"{args.llm}_{MODE_KEY[args.mode]}"
-    llm = build_llm(args.llm)
-    run = {"readout": run_readout, "generative": run_generative, "think": run_think}[args.mode]
+    llm = build_llm(args.llm, processed_logprobs=(args.mode == "readout1"))
+    run = {"readout": run_readout, "readout1": run_readout1, "generative": run_generative,
+           "think": run_think}[args.mode]
     for task, cond, recs, out in jobs(args, model_key):
         run(llm, model_key, recs, out)
         log.info("done %s", out)

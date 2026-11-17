@@ -18,6 +18,8 @@ def base_parser(desc: str) -> argparse.ArgumentParser:
     ap.add_argument("--shard", default="0/1",
                     help="k/n or k1,k2,.../n: only ids with crc32(id) %% n in {k...}. Shards of one model can run "
                          "on several GPUs at once and share the output file (appends are single atomic writes)")
+    ap.add_argument("--any-condition", action="store_true",
+                    help="run the --conditions given even where the per-model defaults omit them (e.g. ES/JP score)")
     return ap
 
 
@@ -31,7 +33,8 @@ def jobs(args, model: str):
     for task in tasks:
         conds = conditions_for(task, model)
         if args.conditions != "all":
-            conds = [c for c in args.conditions.split(",") if c in conds]
+            req = args.conditions.split(",")
+            conds = req if getattr(args, "any_condition", False) else [c for c in req if c in conds]
         for cond in conds:
             rp = records_path(task, cond)
             if not rp.exists():

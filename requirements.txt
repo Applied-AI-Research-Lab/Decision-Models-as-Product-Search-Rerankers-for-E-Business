@@ -11,3 +11,6 @@ pyarrow
 huggingface_hub
 accelerate
 pytest
+snowballstemmer==3.0.1
+fugashi==1.5.2
+unidic-lite==1.0.8
